@@ -1,0 +1,257 @@
+{
+  log:
+  {
+    disabled: false
+    level: debug
+    output: ./src/log/box.log
+    timestamp: true
+  }
+  dns:
+  {
+    fakeip:
+    {
+      enabled: true
+      inet4_range: 198.18.0.0/15
+      inet6_range: fc00::/18
+    }
+    servers:
+    [
+      {
+        tag: OutboundsNameServer
+        address: https://223.5.5.5/dns-query
+        detour: direct
+        strategy: prefer_ipv4
+      }
+      {
+        tag: domesticDns
+        address: https://223.5.5.5/dns-query
+        detour: Domestic
+      }
+      {
+        tag: proxyDns
+        address: tcp://1.1.1.1
+        detour: Select
+      }
+      {
+        enabled: true
+        tag: fakedns
+        address: fakeip
+      }
+      {
+        tag: ADS
+        address: RCode://success
+      }
+    ]
+    rules:
+    [
+      {
+        type: logical
+        mode: and
+        rules:
+        [
+          {
+            outbound: direct
+            invert: true
+          }
+          {
+            outbound: any
+          }
+        ]
+        server: OutboundsNameServer
+        disable_cache: true
+      }
+      {
+        geosite: category-ads-all
+        server: ADS
+      }
+      {
+        query_type:
+        [
+          A
+          AAAA
+        ]
+        server: fakedns
+      }
+      {
+        domain_suffix:
+        [
+          .xn--ngstr-lra8j.com
+          .googleapis.cn
+          .dev
+        ]
+        server: proxyDns
+      }
+      {
+        domain_suffix: .googleapis.cn
+        inbound: tun-in
+        server: fakedns
+      }
+      {
+        domain: www.gstatic.com
+        geosite:
+        [
+          microsoft@cn
+          apple@cn
+          category-games@cn
+          cn
+        ]
+        server: domesticDns
+      }
+    ]
+    final: proxyDns
+    strategy: ipv4_only
+    reverse_mapping: true
+    independent_cache: true
+  }
+  inbounds:
+  [
+    {
+      enabled: true
+      tag: tun-in
+      type: tun
+      interface_name: tun1
+      inet4_address: 172.19.0.1/30
+      inet6_address: fdfe:dcba:9876::1/126
+      strict_route: true
+      auto_route: true
+      stack: system
+      sniff: true
+      sniff_override_destination: false
+      domain_strategy: ipv4_only
+    }
+  ]
+  outbounds:
+  [
+    {
+      tag: direct
+      type: direct
+    }
+    {
+      tag: block
+      type: block
+    }
+    {
+      tag: dns
+      type: dns
+    }
+    {
+      tag: Select
+      type: selector
+      use: all
+    }
+    {
+      tag: Domestic
+      type: selector
+      outbounds: direct
+    }
+  ]
+  route:
+  {
+    geosite:
+    {
+      path: ./src/geosite.db
+      download_url: https://github.com/CHIZI-0618/v2ray-rules-dat/releases/latest/download/geosite.db
+      download_detour: Select
+    }
+    geoip:
+    {
+      path: ./src/geoip.db
+      download_url: https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip-lite.db
+      download_detour: Select
+    }
+    rules:
+    [
+      {
+        protocol: dns
+        outbound: dns
+      }
+      {
+        geosite: category-ads-all
+        outbound: block
+      }
+      {
+        domain_suffix:
+        [
+          .xn--ngstr-lra8j.com
+          .googleapis.cn
+          .dev
+        ]
+        outbound: Select
+      }
+      {
+        domain_suffix: .googleapis.cn
+        outbound: Select
+      }
+      {
+        geosite:
+        [
+          microsoft@cn
+          apple@cn
+          category-games@cn
+          cn
+        ]
+        outbound: Domestic
+      }
+      {
+        geoip: cn
+        outbound: Domestic
+      }
+      {
+        ip_cidr:
+        [
+          224.0.0.0/3
+          ff00::/8
+        ]
+        source_ip_cidr:
+        [
+          224.0.0.0/3
+          ff00::/8
+        ]
+        outbound: block
+      }
+    ]
+    final: Select
+    auto_detect_interface: true
+    find_process: true
+    default_mark: 2333
+  }
+  experimental:
+  {
+    clash_api:
+    {
+      external_controller: 127.0.0.1:9090
+      external_ui: Dashboard
+      default_mode: rule
+      cache_file: ./src/cache.db
+      store_selected: true
+      store_fakeip: true
+    }
+  }
+  packages_list:
+  {
+    mode: black
+    black:
+    [
+      com.cebbank.mobile.cemb
+      com.eg.android.AlipayGphone
+      cmb.pb
+      com.mipay.wallet
+      com.tencent.mm
+      com.ss.android.article.news
+      com.taobao.taobao
+      com.tencent.mobileqq
+      com.jingdong.app.mall
+      com.alibaba.android.rimet
+      com.MobileTicket
+      com.vmos.pro
+    ]
+    white: []
+  }
+  proxy_providers:
+  [
+    {
+      name: 4in1
+      type: file
+    }
+  ]
+}
